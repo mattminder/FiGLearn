@@ -47,9 +47,12 @@ def fit_filter(L, sqrt_empirical_cov, h=None, optimizer=None, n_iters=200,
     if optimizer is None:
         optimizer = torch.optim.SGD(h.parameters(), lr=lr_nnet)
     
+    evals, evecs = torch.symeig(L, eigenvectors=True)   
+    evals = evals.unsqueeze_(-1)
     for i in range(n_iters):
         optimizer.zero_grad()
-        filtered_L = filter_matrix_nnet(L, h)
+        filtered_evals = h(evals)
+        filtered_L = evecs @ torch.diag(filtered_evals.flatten()) @ evecs.T
         cost = ((filtered_L - sqrt_empirical_cov)**2).sum() 
         cost.backward()
         if np.isnan(cost.detach().numpy()):

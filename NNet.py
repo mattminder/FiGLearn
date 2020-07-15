@@ -18,12 +18,7 @@ class NNet(torch.nn.Module):
         
     def forward(self, x, tol=1e-3):
         out = torch.zeros_like(x)
-        above_tol = x[x>tol].unsqueeze_(-1) # don't predict for x less than tolerance (singluarity)
-        hid = self.hidden(above_tol)
+        hid = self.hidden(x)
         logout = self.last(hid)
         val = torch.exp(-logout)
-        #val = 1/(exp+1e-2)
-        #print(val)
-        #val = 1/(exp + torch.exp(self.a)*torch.sqrt(above_tol))
-        out[x>tol] = val.flatten()
-        return out
+        return val
