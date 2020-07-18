@@ -8,7 +8,8 @@ from networkx.generators.community import stochastic_block_model
 def filter_matrix(L, h):
     """Applies function h to eigenvalues of matrix L"""
     evals, evecs = torch.symeig(L, eigenvectors=True)
-    return evecs @ torch.diag(h(evals)) @ evecs.T
+    shape = evals.shape
+    return evecs @ torch.diag(h(evals.view(shape[0],-1)).flatten()) @ evecs.T
 
 
 def filter_matrix_nnet(L, h):

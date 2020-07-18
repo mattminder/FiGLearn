@@ -61,7 +61,7 @@ def fit_filter(L, sqrt_empirical_cov, h=None, optimizer=None, n_iters=200,
     return h
 
 
-def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,alpha=0,
+def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
                  n_epochs=200, random_seed=23, verbose=100):
     """
     Impute graph by alterating between fitting neural network
@@ -91,7 +91,7 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,al
         
     # Initialize h
     if h_start is None:
-        h = fit_normal_kernel()
+        h = NNet()
     else:
         h = h_start
     nnet_optimizer = torch.optim.SGD(h.parameters(), lr=lr_nnet)
@@ -102,7 +102,7 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,al
         L.requires_grad = False
         
         h = start_model_tracking(h)
-        h = fit_filter(L, target, h, nnet_optimizer, n_iters=nit_nnet, alpha=alpha)
+        h = fit_filter(L, target, h, nnet_optimizer, n_iters=nit_nnet)
         h = stop_model_tracking(h)
         
         proj_vals.requires_grad = True
@@ -138,10 +138,6 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,al
         if verbose and (epoch==0 or (epoch+1) % verbose == 0 or epoch+1==n_epochs):
             print('\r[Epoch %4d/%d] loss: %f' % (epoch+1, n_epochs, cost.item()), end='')
             
-            
-    if verbose:
-        print()
-
     return vals_to_A(best_vals).detach().numpy(), history, best_h
 
 
