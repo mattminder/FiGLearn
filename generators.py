@@ -76,8 +76,14 @@ def gen_and_filter(L, n, gen=gen_white_noise, ker=kernel_normal, seed=None):
     return filter_signal(sig, L, ker)
 
 
-def generate_L_sbm(nnodes=10, p_in=.8, p_out=.1, seed=42):
+def generate_L_sbm(nnodes=10, p_in=.8, p_out=.1, seed=42, n_blocks=2):
     """generates L from stochastic block model with two clusters, with nnodes."""
-    G = stochastic_block_model([nnodes//2,nnodes//2],[[p_in,p_out],[p_out,p_in]], seed=seed)
-    L = nx.laplacian_matrix(G).todense()
-    return L
+    if n_blocks==2:
+        G = stochastic_block_model([nnodes//2,nnodes//2],[[p_in,p_out],[p_out,p_in]], seed=seed)
+        L = nx.laplacian_matrix(G).todense()
+        return L
+    else:
+        prob_matrix = np.eye(n_blocks)*(p_in-p_out) + p_out
+        G = stochastic_block_model([nnodes//n_blocks]*n_blocks, prob_matrix, seed=seed)            
+        L = nx.laplacian_matrix(G).todense()
+        return L
