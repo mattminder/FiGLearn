@@ -48,7 +48,7 @@ def gen_dirac(n,d, seed=None, p=None):
     return to_torch(out[np.abs(out).sum(1) > 0])
 
 
-def kernel_heat(eig, alpha=1):
+def kernel_heat(eig, alpha=.1):
     return torch.exp(-alpha*eig)
 
 
