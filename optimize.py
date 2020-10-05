@@ -4,6 +4,7 @@ import pandas as pd
 from helpers import to_torch, vals_to_A, vals_to_L, symsqrt
 from generators import filter_matrix, filter_matrix_nnet
 from NNet import NNet
+from copy import deepcopy
 
 
 
@@ -94,23 +95,20 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
         h = NNet()
     else:
         h = h_start
+    
     nnet_optimizer = torch.optim.SGD(h.parameters(), lr=lr_nnet)
+    l_optimizer = torch.optim.Adam([vals], lr=lr)
     
     for epoch in range(n_epochs):
-        #proj_vals = project_onto_zero_one(vals)
-        #proj_vals = torch.sigmoid(vals)
+        vals.requires_grad = False
         L = vals_to_L(torch.sigmoid(vals))
-        #L = vals_to_L(proj_vals)
-        L.requires_grad = False
         
         h = start_model_tracking(h)
         h = fit_filter(L, target, h, nnet_optimizer, n_iters=nit_nnet)
-        # CHANGED
-        #h = fit_filter(vals_to_L(proj_vals>.5), target, h, nnet_optimizer, n_iters=nit_nnet)
         h = stop_model_tracking(h)
         
         vals.requires_grad = True
-        #proj_vals.requires_grad = True
+        l_optimizer.zero_grad()
         L = vals_to_L(torch.sigmoid(vals))
         
         filtered_L = filter_matrix(L, h)
@@ -118,9 +116,8 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
         
         if best_cost>cost.item():
             best_cost = cost.item()
-            #best_vals = proj_vals
             best_vals = torch.sigmoid(vals)
-            best_h = h
+            best_h = deepcopy(h)
         
         try:
             cost.backward()
@@ -129,10 +126,8 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
             return vals_to_A(proj_vals).detach().numpy(), history, h
         
         # Update
-        with torch.no_grad():
-            #vals = proj_vals - lr * proj_vals.grad
-            vals = vals - lr * vals.grad
-
+        l_optimizer.step()
+        
         # History
         history.loc[epoch] = {'Loss': cost.item(),
                              #'Nb_Sign_Switch': ((proj_vals>.5) & ~(vals>.5)).sum().item(),
