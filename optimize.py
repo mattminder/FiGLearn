@@ -97,23 +97,29 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
     nnet_optimizer = torch.optim.SGD(h.parameters(), lr=lr_nnet)
     
     for epoch in range(n_epochs):
-        proj_vals = project_onto_zero_one(vals)
-        L = vals_to_L(proj_vals)
+        #proj_vals = project_onto_zero_one(vals)
+        #proj_vals = torch.sigmoid(vals)
+        L = vals_to_L(torch.sigmoid(vals))
+        #L = vals_to_L(proj_vals)
         L.requires_grad = False
         
         h = start_model_tracking(h)
         h = fit_filter(L, target, h, nnet_optimizer, n_iters=nit_nnet)
+        # CHANGED
+        #h = fit_filter(vals_to_L(proj_vals>.5), target, h, nnet_optimizer, n_iters=nit_nnet)
         h = stop_model_tracking(h)
         
-        proj_vals.requires_grad = True
-        L = vals_to_L(proj_vals)
+        vals.requires_grad = True
+        #proj_vals.requires_grad = True
+        L = vals_to_L(torch.sigmoid(vals))
         
         filtered_L = filter_matrix(L, h)
         cost = ((filtered_L - target)**2).sum()
         
         if best_cost>cost.item():
             best_cost = cost.item()
-            best_vals = proj_vals
+            #best_vals = proj_vals
+            best_vals = torch.sigmoid(vals)
             best_h = h
         
         try:
@@ -124,15 +130,16 @@ def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
         
         # Update
         with torch.no_grad():
-            vals = proj_vals - lr * proj_vals.grad
+            #vals = proj_vals - lr * proj_vals.grad
+            vals = vals - lr * vals.grad
 
         # History
         history.loc[epoch] = {'Loss': cost.item(),
-                             'Nb_Sign_Switch': ((proj_vals>.5) & ~(vals>.5)).sum().item(),
+                             #'Nb_Sign_Switch': ((proj_vals>.5) & ~(vals>.5)).sum().item(),
                              'Nb_Zero': (vals <= 0).sum().item(),
                              'Nb_One': (vals >= 1).sum().item(),
-                             'Mean_Step': torch.mean(proj_vals.grad*lr).item(),
-                             'Median_Step': torch.median(proj_vals.grad*lr).item(),
+                             #'Mean_Step': torch.mean(proj_vals.grad*lr).item(),
+                             #'Median_Step': torch.median(proj_vals.grad*lr).item(),
                              'Vals_sum': vals.sum().item()}
         
         if verbose and (epoch==0 or (epoch+1) % verbose == 0 or epoch+1==n_epochs):
