@@ -62,8 +62,8 @@ def fit_filter(L, sqrt_empirical_cov, h=None, optimizer=None, n_iters=200,
     return h
 
 
-def impute_graph(y, lr=.1, lr_nnet=1e-4, nit_nnet=1, start=None, h_start=None,
-                 n_epochs=200, random_seed=23, verbose=100):
+def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
+                 n_epochs=3000, random_seed=23, verbose=100):
     """
     Impute graph by alterating between fitting neural network
     and Laplacian
