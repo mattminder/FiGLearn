@@ -63,10 +63,34 @@ def fit_filter(L, sqrt_empirical_cov, h=None, optimizer=None, n_iters=200,
 
 
 def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
-                 n_epochs=3000, random_seed=23, verbose=100):
+                 n_epochs=3000, random_seed=23, verbose=100, learn_h=True):
     """
     Impute graph by alterating between fitting neural network
-    and Laplacian
+    and Laplacian.
+    
+    y:
+        Data matrix (observations x features)
+    lr:
+        Learning rate for Laplacian update
+    lr_nnet:
+        Learning rate for neural network update
+    nit_nnet:
+        Number of neural network updates per Laplacian update
+    start:
+        Initialization for adjacency matrix
+    h_start:
+        Initialization for neural network. If learn_h is set to true,
+        must be torch neural network
+    n_epochs:
+        Number of Laplacian updates
+    random_seed:
+        For Laplacian initialization
+    verbose:
+        Number of updates after which to print status
+    learn_h:
+        Specifies whether to learn h jointly with L. If set to false, 
+        h_start must be given.
+
     """
     _, d = y.shape
     
@@ -85,13 +109,15 @@ def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
     best_h = None
     
     if start is None:
-        vals = torch.rand(size=(1,(d*(d-1)//2)), dtype=torch.float64)
+        vals = torch.rand(size=(1,(d*(d-1)//2)), dtype=torch.float64)  - 0.5
     else:
         start = to_torch(start)
         vals = start[torch.triu(torch.ones(d, d), 1) == 1].unsqueeze_(0)
         
     # Initialize h
     if h_start is None:
+        if not learn_h:
+            raise ValueError('h_start must be given if learn_h is set to False')
         h = NNet()
     else:
         h = h_start
@@ -100,12 +126,13 @@ def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
     l_optimizer = torch.optim.Adam([vals], lr=lr)
     
     for epoch in range(n_epochs):
-        vals.requires_grad = False
-        L = vals_to_L(torch.sigmoid(vals))
-        
-        h = start_model_tracking(h)
-        h = fit_filter(L, target, h, nnet_optimizer, n_iters=nit_nnet)
-        h = stop_model_tracking(h)
+        if learn_h:
+            vals.requires_grad = False
+            L = vals_to_L(torch.sigmoid(vals))
+
+            h = start_model_tracking(h)
+            h = fit_filter(L, target, h, nnet_optimizer, n_iters=nit_nnet)
+            h = stop_model_tracking(h)
         
         vals.requires_grad = True
         l_optimizer.zero_grad()
