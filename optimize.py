@@ -63,7 +63,8 @@ def fit_filter(L, sqrt_empirical_cov, h=None, optimizer=None, n_iters=200,
 
 
 def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
-                 n_epochs=3000, random_seed=23, verbose=100, learn_h=True):
+                 n_epochs=3000, random_seed=23, verbose=100, learn_h=True,
+                 stochastic=False, batch_size=32):
     """
     Impute graph by alterating between fitting neural network
     and Laplacian.
@@ -103,6 +104,7 @@ def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
                            index=range(n_epochs))
 
     torch.manual_seed(random_seed)
+    np.random.seed(random_seed)
     
     best_cost = 1e10
     best_vals = None
@@ -126,6 +128,11 @@ def impute_graph(y, lr=.01, lr_nnet=1e-3, nit_nnet=3, start=None, h_start=None,
     l_optimizer = torch.optim.Adam([vals], lr=lr)
     
     for epoch in range(n_epochs):
+        if stochastic:
+            touse = np.random.choice(y.shape[0], batch_size, replace=False)
+            C_stoch = np.cov(y[touse].T)
+            target = symsqrt(torch.Tensor(C_stoch))
+        
         if learn_h:
             vals.requires_grad = False
             L = vals_to_L(torch.sigmoid(vals))
