@@ -1,10 +1,7 @@
 import torch
 import numpy as np
-import pandas as pd
-from helpers import to_torch, vals_to_A, vals_to_L, symsqrt, A_to_L
-from generators import filter_matrix #, filter_matrix_nnet
+from helpers import to_torch, w_to_A, w_to_L, symsqrt, A_to_L, L_to_A, A_to_w
 from NNet import NNet
-from copy import deepcopy
 from matplotlib import pyplot as plt
 
 
@@ -78,8 +75,10 @@ class NeurIMP:
     
         _seed(seed)
         self._h_of_L = None   # forget about previously computed h(L)
-
+        
         _, d = mat.shape
+        if self._w is None: # if no w provided, chose random
+            self.w = torch.rand(size=(1,(d*(d-1)//2)), dtype=torch.float64)  - 0.5        
 
         if mat_is_cov:
             cov = to_torch(mat)
@@ -90,7 +89,7 @@ class NeurIMP:
 
         # create new optimizers only in case we're not fine tuning
         if not fine_tune:
-            self.optim_h = torch.optim.SGD(h.parameters(), lr=lr_h) 
+            self.optim_h = torch.optim.SGD(self._h.parameters(), lr=lr_h) 
             self.optim_L = torch.optim.Adam([self._w], lr=lr_L) 
 
         for iter in range(int(nit)):
@@ -101,7 +100,7 @@ class NeurIMP:
                     self._optim_h_step(evals, evecs)
                 _stop_model_tracking(self._h)
 
-            cost = _optim_L_step(target)
+            cost = self._optim_L_step(target)
             self.loss_hist.append(cost)
 
             _be_verbose(iter, nit, verbose, cost)    
@@ -136,7 +135,7 @@ class NeurIMP:
         
         _start_model_tracking(self._h)
         for i in range(int(n_iters)):
-            self._optim_h_step(evals, evecs)
+            self._optim_h_step(sqrt_cov, evals, evecs)
         _stop_model_tracking(self._h)
         
     def impute_missing(self, signal, mask=None, lr=1e-2, n_iters=1000, 
@@ -211,14 +210,16 @@ class NeurIMP:
                 
         # A random adjacency is created if None
         if graph is None:
-            self.w = torch.rand(size=(1,(d*(d-1)//2)), dtype=torch.float64)  - 0.5        
+            self._w = None
+            self._L = None
+            self._A = None
         else:
             graph_torch = torch.Tensor(graph)
             
             if graph_torch.ndim > 2:
                 raise ValueError('graph must be None or one- or two-dimensional tensor.')
             
-            if graph_torch.ndim = 1:
+            if graph_torch.ndim == 1:
                 self.w = graph_torch
             elif torch.any(graph_torch < 0):
                 self.L = graph_torch
@@ -232,11 +233,11 @@ class NeurIMP:
         else:
             self.h = h    
     
-    def _optim_h_step(evals, evecs):
+    def _optim_h_step(self, target, evals, evecs):
         self.optim_h.zero_grad()
         filtered_evals = self._h(evals)
         filtered_L = evecs @ torch.diag(filtered_evals.flatten()) @ evecs.T
-        cost = ((filtered_L - sqrt_empirical_cov)**2).sum() 
+        cost = ((filtered_L - target)**2).sum() 
         cost.backward()
         if np.isnan(cost.detach().numpy()):
             raise RuntimeError('NAN LOSS ENCOUNTERED')
@@ -247,7 +248,7 @@ class NeurIMP:
         self._w.requires_grad = True
         self.optim_L.zero_grad()
         L = w_to_L(self._w)
-        filtered_L = filter_matrix(L, h)
+        filtered_L = filter_matrix(L, self._h)
         cost = ((filtered_L - target)**2).sum()
         cost.backward()
         self.optim_L.step()
@@ -293,8 +294,8 @@ class NeurIMP:
         return evals, evecs
     
     def filter_signal(self, signal):
+        return signal @ self._h_of_L
         
-
     @property
     def A(self):
         return self._A.detach()
@@ -355,7 +356,7 @@ def _check_valid_laplacian(L, tol=1e-3):
 
 def _check_valid_adjacency(A, tol=1e-3):
     A = to_torch(A)
-    _check_symmetric(mat, 'Adjacency Matrix')
+    _check_symmetric(A, 'Adjacency Matrix')
     if A.ndim != 2:
         raise ValueError('Adjacency Matrix must have two dimensions')
     if torch.any(torch.abs(torch.diag(A)) > tol):
@@ -393,4 +394,10 @@ def _start_model_tracking(model):
         param.requires_grad = True
     return model
 
+
+def filter_matrix(L, h):
+    """Applies function h to eigenvalues of matrix L"""
+    evals, evecs = torch.symeig(L, eigenvectors=True)
+    shape = evals.shape
+    return evecs @ torch.diag(h(evals.view(shape[0],-1)).flatten()) @ evecs.T
 
