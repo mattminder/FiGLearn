@@ -37,12 +37,12 @@ class NeurIMP:
         """
         
         _seed(seed)
-        self.__init_graph(graph)
-        self.__init_h(h)
+        self._init_graph(graph)
+        self._init_h(h)
         self.optim_h = None 
         self.optim_L = None 
         self.loss_hist = []
-        self.__h_of_L = None
+        self._h_of_L = None
 
     def fit_graph(self, mat, lr_L=1e-2, lr_h=1e-4, nit=3000, nit_h_per_iter=3,
                   learn_h=True, mat_is_cov=False, fine_tune=False,
@@ -77,7 +77,7 @@ class NeurIMP:
         """
     
         _seed(seed)
-        self.__h_of_L = None   # forget about previously computed h(L)
+        self._h_of_L = None   # forget about previously computed h(L)
 
         _, d = mat.shape
 
@@ -91,17 +91,17 @@ class NeurIMP:
         # create new optimizers only in case we're not fine tuning
         if not fine_tune:
             self.optim_h = torch.optim.SGD(h.parameters(), lr=lr_h) 
-            self.optim_L = torch.optim.Adam([self.__w], lr=lr_L) 
+            self.optim_L = torch.optim.Adam([self._w], lr=lr_L) 
 
         for iter in range(int(nit)):
             if learn_h:
-                _start_model_tracking(self.__h)
+                _start_model_tracking(self._h)
                 evals, evecs = self.get_L_decomp()
                 for _ in range(int(nit_h_per_iter)):
-                    self.__optim_h_step(evals, evecs)
-                _stop_model_tracking(self.__h)
+                    self._optim_h_step(evals, evecs)
+                _stop_model_tracking(self._h)
 
-            cost = __optim_L_step(target)
+            cost = _optim_L_step(target)
             self.loss_hist.append(cost)
 
             _be_verbose(iter, nit, verbose, cost)    
@@ -123,7 +123,7 @@ class NeurIMP:
             Specifies whether input mat is covariance matrix or observed signals.
         """
         _seed(seed)
-        self.__h_of_L = None   # forget about previously computed h(L)
+        self._h_of_L = None   # forget about previously computed h(L)
         
         if mat_is_cov:
             cov = mat
@@ -134,10 +134,10 @@ class NeurIMP:
 
         self.optim_h = torch.optim.SGD(self.h.parameters(), lr=lr_nnet)
         
-        _start_model_tracking(self.__h)
+        _start_model_tracking(self._h)
         for i in range(int(n_iters)):
-            self.__optim_h_step(evals, evecs)
-        _stop_model_tracking(self.__h)
+            self._optim_h_step(evals, evecs)
+        _stop_model_tracking(self._h)
         
     def impute_missing(self, signal, mask=None, lr=1e-2, n_iters=1000, 
                        seed=42, verbose=None):
@@ -207,7 +207,7 @@ class NeurIMP:
                 return np.array(zip(*[impute_single_signal(s, m)
                                       for s, m in zip(signal, mask)]))                
         
-    def __init_graph(self, graph):
+    def _init_graph(self, graph):
                 
         # A random adjacency is created if None
         if graph is None:
@@ -225,16 +225,16 @@ class NeurIMP:
             else:
                 self.A = graph_torch
 
-    def __init_h(self, h):
+    def _init_h(self, h):
         
         if h is None:
             self.h = NNet()
         else:
             self.h = h    
     
-    def __optim_h_step(evals, evecs):
+    def _optim_h_step(evals, evecs):
         self.optim_h.zero_grad()
-        filtered_evals = self.__h(evals)
+        filtered_evals = self._h(evals)
         filtered_L = evecs @ torch.diag(filtered_evals.flatten()) @ evecs.T
         cost = ((filtered_L - sqrt_empirical_cov)**2).sum() 
         cost.backward()
@@ -243,16 +243,16 @@ class NeurIMP:
         self.optim_h.step()
         return cost.item()
         
-    def __optim_L_step(self, target):
-        self.__w.requires_grad = True
+    def _optim_L_step(self, target):
+        self._w.requires_grad = True
         self.optim_L.zero_grad()
-        L = w_to_L(self.__w)
+        L = w_to_L(self._w)
         filtered_L = filter_matrix(L, h)
         cost = ((filtered_L - target)**2).sum()
         cost.backward()
         self.optim_L.step()
-        self.__w.requires_grad = False
-        self.w = self.__w # assures that L and A are updated
+        self._w.requires_grad = False
+        self.w = self._w # assures that L and A are updated
         return cost.item()
 
     def save(self):
@@ -278,7 +278,7 @@ class NeurIMP:
         plt.subplot(133)
         evals, _ = np.linalg.eig(self.L)
         x = torch.Tensor(np.linspace(0.01, evals.max()+1, num=100)).unsqueeze_(-1)
-        plt.plot(x.numpy(), self.__h(x).detach().numpy())
+        plt.plot(x.numpy(), self._h(x).detach().numpy())
         plt.legend(['Fitted', 'True'])
         plt.xlabel('Eigenvalue')
         plt.ylabel('Kernel');    
@@ -286,61 +286,61 @@ class NeurIMP:
     def plot_loss(self):
         plt.plot(self.loss_hist)
         plt.yscale('log')
-    
-    def _wrong_graph_input_error():
-        raise ValueError('W')
-        
+            
     def get_L_decomp(self):
         evals, evecs = torch.symeig(self.L, eigenvectors=True)
         evals = evals.unsqueeze_(-1)
         return evals, evecs
+    
+    def filter_signal(self, signal):
+        
 
     @property
     def A(self):
-        return self.__A.detach()
+        return self._A.detach()
     
     @A.setter
     def A(self, value):
         _check_valid_adjacency(value)
-        self.__A = to_torch(value)
-        self.__L = A_to_L(value)
-        self.__w = A_to_w(self.__A)
+        self._A = to_torch(value)
+        self._L = A_to_L(value)
+        self._w = A_to_w(self._A)
     
     @property
     def L(self):
-        return self.__L.detach()
+        return self._L.detach()
     
     @L.setter
     def L(self, value):
         _check_valid_laplacian(value)
-        self.__L = to_torch(value)
-        self.__A = L_to_A(value)
-        self.__w = A_to_w(self.__A)
+        self._L = to_torch(value)
+        self._A = L_to_A(value)
+        self._w = A_to_w(self._A)
         
     @property
     def w(self):
-        return self.__w.detach()
+        return self._w.detach()
 
     @w.setter
     def w(self, value):
-        self.__w = to_torch(value)
-        self.__A = w_to_A(value)
-        self.__L = A_to_L(self.__A)
-    
+        self._w = to_torch(value)
+        self._A = w_to_A(value)
+        self._L = A_to_L(self._A)
+        
     @property
     def h(self):
-        return self.__h
+        return self._h
 
     @h.setter
     def h(self, value):
         assert hasattr(value, '__call__'), 'The assigned value h is not callable.'
-        self.__h = value
+        self._h = value
 
     @property
     def h_of_L(self):
-        if self.__h_of_L is None:
-            self.__h_of_L = filter_matrix(self.L, self.h)
-        return self.__h_of_L
+        if self._h_of_L is None:
+            self._h_of_L = filter_matrix(self.L, self.h)
+        return self._h_of_L
         
         
 def _check_valid_laplacian(L, tol=1e-3):
