@@ -171,10 +171,12 @@ class FiGLearn:
         
         def impute_single_signal(signal, mask):
             """processes a single signal"""
+            
+            signal = signal.flatten()
             if mask is None:
                 mask = ~np.isnan(signal)
             else:
-                mask = mask & (~np.isnan(signal))
+                mask = (mask & (~np.isnan(signal))).flatten()
 
             target = torch.Tensor(signal[mask])
             tot_nodes = mask.sum()
@@ -197,7 +199,7 @@ class FiGLearn:
 
             # put the values that we actually know
             out[mask] = signal[mask]
-            return generating, out
+            return generating.detach().numpy(), out
         
         def is_oneD(arr):
             """checks array is 1D or 2D with single row"""
@@ -207,12 +209,15 @@ class FiGLearn:
             return impute_single_signal(signal, mask)
         else:
             verbose=False
-            if is_oneD(mask):
-                return np.array(zip(*[impute_single_signal(s, mask)
-                                      for s in signal]))
+            if mask is None or is_oneD(mask):
+                gen, imp = zip(*[impute_single_signal(s, mask)
+                                 for s in signal])
             else:
-                return np.array(zip(*[impute_single_signal(s, m)
-                                      for s, m in zip(signal, mask)])) 
+                gen, imp = zip(*[impute_single_signal(s, m)
+                                 for s, m in zip(signal, mask)])
+            return np.array(gen), np.array(imp)
+        
+
             
     def round(self, mat=None, threshold=.5, copy=False, **kwargs):
         """
@@ -354,6 +359,9 @@ class FiGLearn:
         
         plt.plot(self.loss_hist)
         plt.yscale('log')
+        plt.title('Loss')
+        plt.xlabel('Number of Iterations')
+        plt.ylabel('Wasserstein Loss')
             
     def get_L_decomp(self, round=False, ignore=0):
         
