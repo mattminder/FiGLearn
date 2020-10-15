@@ -25,7 +25,7 @@ elseif isequal(filter_type,'hop')
     
     sigma_sq = 1./(lambdas.^beta);
    
-elseif isequal(filter_type,'normal')
+elseif isequal(filter_type,'norm')
     
     sigma_sq = zeros(size(lambdas));
     sigma_sq(lambdas>1e-2) = sqrt(1./lambdas(lambdas>1e-2));

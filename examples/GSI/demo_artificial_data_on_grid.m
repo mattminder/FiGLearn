@@ -1,4 +1,4 @@
-clear
+clear all
 clc
 close all
 
@@ -14,7 +14,8 @@ BS = 8;
 
 for k=3:2:7 
     load(['As_' num2str(k*10) '_diffkernel.mat']);
-    A_res = zeros(size(As_diffkernel))
+    As_diffkernel_res = zeros(size(As_diffkernel));
+    As_diffkernel_true = zeros(size(As_diffkernel));
     for i=1:size(As_diffkernel,1)
     A_connectivity = squeeze(As_diffkernel(1,:,:));  
     A_mask = A_connectivity;
@@ -26,7 +27,7 @@ for k=3:2:7
     graph_filter_ideal = @(x)(graph_filter_fwd(x,beta,filter_type) );
 
     % generate graph system
-    [h_L,h_L_sqrMatrix] = generateFilteredModel(Ltrue,graph_filter_ideal);
+    [h_L,h_L_sqrMatrix] =   (Ltrue,graph_filter_ideal);
 
 
     %% Generate data samples based on h_L
@@ -39,12 +40,15 @@ for k=3:2:7
     % Eigendecompose data
     [U,sigma_sq_C] = createBasis(S_data,'descend');
     sigma_sq_C(sigma_sq_C <= 10^-10) = 0;
+    
     for repeat=1:max_iterations
      disp(['-- Iteration ' num2str(repeat) '--']);
+    
     % Step I: Prefiltering step
     lambdas_current = graph_filter_inv(sigma_sq_C,beta_current,filter_type);
     current_sigmas = 1./lambdas_current; 
     current_sigmas(current_sigmas==Inf)=0;
+    
     % construct unfiltered S
     S_prefiltered = U * diag(abs(current_sigmas)) * U'; 
     S_prefiltered = 0.5*(S_prefiltered + S_prefiltered'); % symmetrize (in case of numerical inaccuracies)
@@ -74,17 +78,22 @@ for k=3:2:7
     disp(' Figure 2 shows the estimated graph');
 
     %f1=figure(1);
+    As_diffkernel_true(i,:,:) = laplacianToAdjacency(Ltrue,eps);
     %draw_grid_graph(laplacianToAdjacency(Ltrue,eps),BS);
     %axis square
     %movegui(f1,'west');
 
     %f2=figure(2);
-    As_res(i,:,:) = laplacianToAdjacency(Laplacian,eps);
+    As_diffkernel_res(i,:,:) = laplacianToAdjacency(Laplacian,eps);
     %draw_grid_graph(laplacianToAdjacency(Laplacian,eps),BS);
     %axis square
     %movegui(f2,'east');
 
     end
 end
+
+% save resutls
+save('As_diffkernel_true.mat','As_diffkernel_true');
+save('As_diffkernel_res.mat', 'As_diffkernel_res');
 
     

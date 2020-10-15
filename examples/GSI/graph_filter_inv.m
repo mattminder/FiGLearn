@@ -27,7 +27,7 @@ elseif isequal(filter_type,'hop')
     lambdas = 1./(sigma_sq.^(1/beta));
     lambdas(sigma_sq <= 10^-10) = 0;
 
-elseif isequal(filter_type,'normal')
+elseif isequal(filter_type,'norm')
     
    lambdas = zeros(size(sigma_sq));
    lambdas(sigma_sq>1e-2) = 1./(sigma_sq(sigma_sq>1e-2).^2);
