@@ -43,7 +43,7 @@ def A_to_w(A):
 def w_to_A(w):
     """Converts values to adjacency matrix """
     sigm = torch.sigmoid(w)
-    _, l = vals.shape
+    _, l = w.shape
     d = int(1/2 * (1 + np.sqrt(8*l+1))) # dimension of adjacency
     A = torch.zeros((d,d)).float()
     A[torch.triu(torch.ones_like(A, dtype=float), 1)==1] = sigm.float()
@@ -108,3 +108,4 @@ def w2_dist(C, L, add_to_Linv=0):
 def accuracy(Atrue, Aimp):
     d = Atrue.shape[0]
     return 1 - np.logical_xor(Atrue>0, Aimp>0).sum()/(d*(d-1))
+
