@@ -87,7 +87,7 @@ class FiGLearn:
         _, d = mat.shape
         if self._w is None: # if no w provided, chose random
             self.w = torch.rand(size=(1,(d*(d-1)//2)), dtype=torch.float64)  - 0.5        
-
+            
         if mat_is_cov:
             cov = to_torch(mat)
         else:
@@ -318,7 +318,7 @@ class FiGLearn:
         cost = ((filtered_L - target)**2).sum()
         cost.backward()
         if torch.any(torch.isnan(self._w.grad)):
-            raise RunTimeError('nan gradient encountered. Decrease learning rate.')
+            raise RuntimeError('nan gradient encountered. Decrease learning rate.')
         self.optim_L.step()
         self._w.requires_grad = False
         self.w = self._w # assures that L and A are updated
