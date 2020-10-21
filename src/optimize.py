@@ -146,10 +146,10 @@ class FiGLearn:
             self._optim_h_step(sqrt_cov, evals, evecs)
         _stop_model_tracking(self._h)
         
-    def impute_missing(self, signal, mask=None, lr=1e-2, n_iters=1000, 
+    def infer_missing(self, signal, mask=None, lr=1e-2, n_iters=1000, 
                        seed=42, verbose=None):
         """
-        Imputes the missing values in a signal using the graph and 
+        Infers the missing values in a signal using the graph and 
         filter.
         
         signal (np.ndarray):
@@ -169,7 +169,7 @@ class FiGLearn:
         """
         _seed(seed)
         
-        def impute_single_signal(signal, mask):
+        def infer_single_signal(signal, mask):
             """processes a single signal"""
             
             signal = signal.flatten()
@@ -206,14 +206,14 @@ class FiGLearn:
             return arr.ndim==1 or arr.shape[0]==1
         
         if is_oneD(signal):
-            return impute_single_signal(signal, mask)
+            return infer_single_signal(signal, mask)
         else:
             verbose=False
             if mask is None or is_oneD(mask):
-                gen, imp = zip(*[impute_single_signal(s, mask)
+                gen, imp = zip(*[infer_single_signal(s, mask)
                                  for s in signal])
             else:
-                gen, imp = zip(*[impute_single_signal(s, m)
+                gen, imp = zip(*[infer_single_signal(s, m)
                                  for s, m in zip(signal, mask)])
             return np.array(gen), np.array(imp)
         
@@ -221,7 +221,7 @@ class FiGLearn:
             
     def round(self, mat=None, threshold=.5, copy=False, **kwargs):
         """
-        Rounds the imputed adjacency matrix to 0 or 1. If sample is provided,
+        Rounds the inferred adjacency matrix to 0 or 1. If sample is provided,
         fits the filter to the rounded adjacency matrix. (recommended)
         
         mat (np.ndarray or None):
@@ -339,12 +339,12 @@ class FiGLearn:
 
         plt.subplot(131)
         plt.imshow(self.A>.5)
-        plt.title('Rounded Imputed Adjacency')
+        plt.title('Rounded Inferred Adjacency')
         plt.axis('off')
 
         plt.subplot(132)
         plt.imshow(self.A)
-        plt.title('Imputed Adjacency')
+        plt.title('Inferred Adjacency')
         plt.axis('off')
 
         plt.subplot(133)
