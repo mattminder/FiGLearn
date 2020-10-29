@@ -21,6 +21,4 @@ class NNet(torch.nn.Module):
         hid = self.hidden(x)
         logout = self.last(hid)
         val = torch.exp(-logout)
-        #val = torch.nn.ReLU(logout)
-        #return val
         return self.softplus(logout)

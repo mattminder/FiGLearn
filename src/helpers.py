@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+from copy import deepcopy
 
 def vals_to_A(vals):
     """Converts values to adjacency matrix """
@@ -21,6 +21,37 @@ def A_to_L(A, reg=None):
         return (D-A) + torch.eye(A.shape[0])*reg
     else:
         return (D-A)
+
+    
+def L_to_A(L):
+    if type(L) is not torch.Tensor:
+        L = to_torch(L)
+
+    out = -deepcopy(L)
+    out[torch.eye(*L.shape).bool()] = 0
+    return out
+
+
+def A_to_w(A):
+    """Converts A to the optimized vector, i.e. returns logit of the
+    upper triangular values. A is clipped to (0.05, 0.95) to avoid inf"""
+    clamped = torch.clamp(A, .05, .95) # avoid infinite values
+    logit = torch.log(clamped) - torch.log(1-clamped)
+    return logit[torch.triu(torch.ones(*A.shape), 1) == 1].unsqueeze_(0)
+    
+    
+def w_to_A(w):
+    """Converts values to adjacency matrix """
+    sigm = torch.sigmoid(w)
+    _, l = w.shape
+    d = int(1/2 * (1 + np.sqrt(8*l+1))) # dimension of adjacency
+    A = torch.zeros((d,d)).float()
+    A[torch.triu(torch.ones_like(A, dtype=float), 1)==1] = sigm.float()
+    A = A+A.t()
+    return A
+
+def w_to_L(w):
+    return A_to_L(w_to_A(w))
 
     
 def vals_to_L(vals, reg=1e-5):
@@ -77,3 +108,4 @@ def w2_dist(C, L, add_to_Linv=0):
 def accuracy(Atrue, Aimp):
     d = Atrue.shape[0]
     return 1 - np.logical_xor(Atrue>0, Aimp>0).sum()/(d*(d-1))
+
